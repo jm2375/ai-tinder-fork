@@ -264,12 +264,6 @@ resetDeck();
   document.addEventListener("pointerup",    onPointerUp);
   document.addEventListener("pointercancel", onPointerUp);
 
-  // Desktop double-click fallback
-  document.addEventListener("dblclick", (e) => {
-    const card = getTopCard();
-    if (card && card.contains(e.target)) nextPhoto(card);
-  });
-
   // Power the action buttons using the actual IDs from index.html
   nopeBtn.addEventListener("click",      () => animateDecision(getTopCard(), "nope"));
   likeBtn.addEventListener("click",      () => animateDecision(getTopCard(), "like"));
