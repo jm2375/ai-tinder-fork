@@ -111,9 +111,9 @@ body {
   transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
 }
 
-.card:nth-child(1) { transform: translateY(0) scale(1); }
-.card:nth-child(2) { transform: translateY(10px) scale(0.985); filter: brightness(0.95); }
-.card:nth-child(3) { transform: translateY(20px) scale(0.97); filter: brightness(0.9); }
+.card:nth-child(1) { z-index: 3; transform: translateY(0) scale(1); cursor: grab; }
+.card:nth-child(2) { z-index: 2; transform: translateY(10px) scale(0.985); filter: brightness(0.95); }
+.card:nth-child(3) { z-index: 1; transform: translateY(20px) scale(0.97); filter: brightness(0.9); }
 
 .card__media {
   height: 70%;
@@ -190,11 +190,82 @@ body {
 .ctrl--like { background: var(--like); }
 .ctrl--superlike { background: var(--super); }
 
-.note {
+/* Photo dots */
+.card__dots {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.card__dot {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.card__dot--active {
+  background: #fff;
+}
+
+/* Swipe overlays */
+.card__overlay {
+  position: absolute;
+  top: 22%;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 4px solid;
+  z-index: 10;
+  transition: opacity 60ms;
+}
+
+.card__overlay--like {
+  left: 18px;
+  color: var(--like);
+  border-color: var(--like);
+  transform: rotate(-15deg);
+}
+
+.card__overlay--nope {
+  right: 18px;
+  color: var(--nope);
+  border-color: var(--nope);
+  transform: rotate(15deg);
+}
+
+.card__overlay--super {
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--super);
+  border-color: var(--super);
+}
+
+/* Empty deck state */
+.deck__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   color: var(--muted);
+  font-size: 18px;
   text-align: center;
-  margin: 0;
-  font-size: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @media (max-width: 520px) {
