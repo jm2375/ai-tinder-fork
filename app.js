@@ -152,10 +152,12 @@ resetDeck();
   const ROTATE_DEG = 12;
   const EXIT_MULT = 1.25;
 
+  // Live collection of all card elements; updated automatically as the DOM changes.
+  const cardElements = document.getElementsByClassName("card");
+
   function getTopCard() {
-    const cards = document.querySelectorAll(".card");
-    if (!cards || cards.length === 0) return null;
-    return cards[cards.length - 1];
+    if (!cardElements || cardElements.length === 0) return null;
+    return cardElements[cardElements.length - 1];
   }
 
   function nextPhoto(card) {
