@@ -53,6 +53,10 @@ function imgFor(seed) {
 function generateProfiles(count = 12) {
   const profiles = [];
   for (let i = 0; i < count; i++) {
+    // Pick 2-4 unique photos per profile
+    const shuffled = [...UNSPLASH_SEEDS].sort(() => Math.random() - 0.5);
+    const photoCount = 2 + Math.floor(Math.random() * 3); // 2, 3, or 4
+    const photos = shuffled.slice(0, photoCount).map(imgFor);
     profiles.push({
       id: `p_${i}_${Date.now().toString(36)}`,
       name: sample(FIRST_NAMES),
@@ -61,7 +65,7 @@ function generateProfiles(count = 12) {
       title: sample(JOBS),
       bio: sample(BIOS),
       tags: pickTags(),
-      img: imgFor(sample(UNSPLASH_SEEDS)),
+      photos,
     });
   }
   return profiles;
@@ -82,13 +86,15 @@ function renderDeck() {
   deckEl.setAttribute("aria-busy", "true");
   deckEl.innerHTML = "";
 
-  profiles.forEach((p, idx) => {
+  profiles.forEach((p) => {
     const card = document.createElement("article");
     card.className = "card";
+    card.setAttribute("data-photos", JSON.stringify(p.photos));
+    card.setAttribute("data-photo-idx", "0");
 
     const img = document.createElement("img");
     img.className = "card__media";
-    img.src = p.img;
+    img.src = p.photos[0];
     img.alt = `${p.name} — profile photo`;
 
     const body = document.createElement("div");
@@ -132,17 +138,138 @@ function resetDeck() {
   renderDeck();
 }
 
-// Controls (intentionally not implemented)
-likeBtn.addEventListener("click", () => {
-  console.log("Like clicked.");
-});
-nopeBtn.addEventListener("click", () => {
-  console.log("Nope clicked.");
-});
-superLikeBtn.addEventListener("click", () => {
-  console.log("Super Like clicked.");
-});
 shuffleBtn.addEventListener("click", resetDeck);
 
 // Boot
 resetDeck();
+
+// ===============================
+// INTERACTIONS: swipe + buttons + double-tap
+// ===============================
+(function setupTinderInteractions() {
+  const SWIPE_X_THRESHOLD = 90;
+  const SWIPE_Y_THRESHOLD = 90;
+  const ROTATE_DEG = 12;
+  const EXIT_MULT = 1.25;
+
+  function getTopCard() {
+    const cards = document.querySelectorAll(".card");
+    if (!cards || cards.length === 0) return null;
+    return cards[cards.length - 1];
+  }
+
+  function nextPhoto(card) {
+    if (!card) return;
+
+    const img = card.querySelector("img");
+    if (!img) return;
+
+    const raw = card.getAttribute("data-photos");
+    if (!raw) return;
+
+    let photos;
+    try { photos = JSON.parse(raw); } catch { return; }
+    if (!Array.isArray(photos) || photos.length === 0) return;
+
+    const idx = Number(card.getAttribute("data-photo-idx") || "0");
+    const nextIdx = (idx + 1) % photos.length;
+    card.setAttribute("data-photo-idx", String(nextIdx));
+    img.src = photos[nextIdx];
+  }
+
+  function animateDecision(card, decision) {
+    if (!card) return;
+
+    const outX =
+      decision === "like"  ? window.innerWidth  :
+      decision === "nope"  ? -window.innerWidth  :
+      0;
+    const outY =
+      decision === "superlike" ? -window.innerHeight : 0;
+    const rotate =
+      decision === "like" ?  ROTATE_DEG :
+      decision === "nope" ? -ROTATE_DEG :
+      0;
+
+    card.style.transition = "transform 260ms ease";
+    card.style.transform =
+      `translate(${outX * EXIT_MULT}px, ${outY * EXIT_MULT}px) rotate(${rotate}deg)`;
+
+    setTimeout(() => card.remove(), 260);
+  }
+
+  // Gesture state
+  let startX = 0, startY = 0;
+  let dx = 0, dy = 0;
+  let dragging = false;
+
+  // Double-tap detection
+  let lastTapTime = 0;
+  const DOUBLE_TAP_MS = 320;
+
+  function onPointerDown(e) {
+    const card = getTopCard();
+    if (!card || !card.contains(e.target)) return;
+
+    dragging = true;
+    dx = 0; dy = 0;
+    card.setPointerCapture?.(e.pointerId);
+    startX = e.clientX;
+    startY = e.clientY;
+    card.style.transition = "none";
+
+    const now = Date.now();
+    if (now - lastTapTime < DOUBLE_TAP_MS) {
+      nextPhoto(card);
+      lastTapTime = 0;
+      dragging = false;
+      card.style.transition = "";
+      card.style.transform = "";
+      return;
+    }
+    lastTapTime = now;
+  }
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    const card = getTopCard();
+    if (!card) return;
+
+    dx = e.clientX - startX;
+    dy = e.clientY - startY;
+    const rotate = Math.max(-ROTATE_DEG, Math.min(ROTATE_DEG, dx / 18));
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rotate}deg)`;
+  }
+
+  function onPointerUp() {
+    if (!dragging) return;
+    dragging = false;
+
+    const card = getTopCard();
+    if (!card) return;
+
+    if (dx > SWIPE_X_THRESHOLD)   { animateDecision(card, "like");      return; }
+    if (dx < -SWIPE_X_THRESHOLD)  { animateDecision(card, "nope");      return; }
+    if (dy < -SWIPE_Y_THRESHOLD)  { animateDecision(card, "superlike"); return; }
+
+    // Snap back
+    card.style.transition = "transform 220ms ease";
+    card.style.transform = "translate(0px, 0px) rotate(0deg)";
+  }
+
+  document.addEventListener("pointerdown",  onPointerDown);
+  document.addEventListener("pointermove",  onPointerMove);
+  document.addEventListener("pointerup",    onPointerUp);
+  document.addEventListener("pointercancel", onPointerUp);
+
+  // Desktop double-click fallback
+  document.addEventListener("dblclick", (e) => {
+    const card = getTopCard();
+    if (card && card.contains(e.target)) nextPhoto(card);
+  });
+
+  // Power the action buttons using the actual IDs from index.html
+  nopeBtn.addEventListener("click",      () => animateDecision(getTopCard(), "nope"));
+  likeBtn.addEventListener("click",      () => animateDecision(getTopCard(), "like"));
+  superLikeBtn.addEventListener("click", () => animateDecision(getTopCard(), "superlike"));
+})();
