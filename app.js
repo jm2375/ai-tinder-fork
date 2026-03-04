@@ -2,6 +2,25 @@
 // Plain global JS, no modules.
 
 // -------------------
+// Backend API
+// -------------------
+const API_BASE = "http://localhost:3000";
+
+async function postDecision(profileId, decision, profile) {
+  try {
+    const res = await fetch(`${API_BASE}/api/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId, decision, profile }),
+    });
+    return await res.json();
+  } catch {
+    // Server offline — fail silently, UI still works
+    return null;
+  }
+}
+
+// -------------------
 // Data generator
 // -------------------
 const TAGS = [
@@ -91,6 +110,8 @@ function renderDeck() {
     card.className = "card";
     card.setAttribute("data-photos", JSON.stringify(p.photos));
     card.setAttribute("data-photo-idx", "0");
+    card.setAttribute("data-profile-id", p.id);
+    card.setAttribute("data-profile", JSON.stringify({ id: p.id, name: p.name, age: p.age, city: p.city, title: p.title }));
 
     const img = document.createElement("img");
     img.className = "card__media";
@@ -143,6 +164,19 @@ shuffleBtn.addEventListener("click", resetDeck);
 // Boot
 resetDeck();
 
+// -------------------
+// Match toast
+// -------------------
+function showMatchToast() {
+  let toast = document.getElementById("matchToast");
+  if (!toast) return;
+  // Reset so re-triggering works
+  toast.classList.remove("match-toast--visible");
+  void toast.offsetWidth; // reflow
+  toast.classList.add("match-toast--visible");
+  setTimeout(() => toast.classList.remove("match-toast--visible"), 1800);
+}
+
 // ===============================
 // INTERACTIONS: swipe + buttons + double-tap
 // ===============================
@@ -182,6 +216,10 @@ resetDeck();
   function animateDecision(card, decision) {
     if (!card) return;
 
+    const profileId = card.getAttribute("data-profile-id") || "";
+    let profile = null;
+    try { profile = JSON.parse(card.getAttribute("data-profile") || "null"); } catch { /* ignore */ }
+
     const outX =
       decision === "like"  ? window.innerWidth  :
       decision === "nope"  ? -window.innerWidth  :
@@ -196,6 +234,13 @@ resetDeck();
     card.style.transition = "transform 260ms ease";
     card.style.transform =
       `translate(${outX * EXIT_MULT}px, ${outY * EXIT_MULT}px) rotate(${rotate}deg)`;
+
+    // Post to backend; on superlike always show match toast, on like use server response
+    postDecision(profileId, decision, profile).then((data) => {
+      if (data && data.matched) showMatchToast();
+    });
+    // For superlike, show toast immediately without waiting for network
+    if (decision === "superlike") showMatchToast();
 
     setTimeout(() => card.remove(), 260);
   }
