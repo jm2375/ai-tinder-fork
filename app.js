@@ -167,15 +167,33 @@ resetDeck();
 // -------------------
 // Match toast
 // -------------------
-function showMatchToast() {
+function showMatchToast(name) {
   let toast = document.getElementById("matchToast");
   if (!toast) return;
+  toast.textContent = name ? `🔥 It's a Match with ${name}!` : "🔥 It's a Match!";
   // Reset so re-triggering works
   toast.classList.remove("match-toast--visible");
   void toast.offsetWidth; // reflow
   toast.classList.add("match-toast--visible");
-  setTimeout(() => toast.classList.remove("match-toast--visible"), 1800);
+  setTimeout(() => toast.classList.remove("match-toast--visible"), 2200);
 }
+
+// -------------------
+// Poll backend every 10s for incoming matches
+// -------------------
+async function pollForMatches() {
+  try {
+    const res = await fetch(`${API_BASE}/api/matches/poll`);
+    const data = await res.json();
+    if (data.matches && data.matches.length > 0) {
+      data.matches.forEach((match, i) => {
+        setTimeout(() => showMatchToast(match.profile?.name), i * 2400);
+      });
+    }
+  } catch { /* server offline — silent */ }
+}
+
+setInterval(pollForMatches, 10000);
 
 // ===============================
 // INTERACTIONS: swipe + buttons + double-tap
@@ -237,10 +255,10 @@ function showMatchToast() {
 
     // Post to backend; on superlike always show match toast, on like use server response
     postDecision(profileId, decision, profile).then((data) => {
-      if (data && data.matched) showMatchToast();
+      if (data && data.matched) showMatchToast(profile?.name);
     });
     // For superlike, show toast immediately without waiting for network
-    if (decision === "superlike") showMatchToast();
+    if (decision === "superlike") showMatchToast(profile?.name);
 
     setTimeout(() => card.remove(), 260);
   }
